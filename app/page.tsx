@@ -44,11 +44,19 @@ export default function Home() {
         id: "reserve",
       });
 
+      const idempotencyKey = crypto.randomUUID();
+
       const response = await axios.post(
         "/api/reservations",
         {
           productId,
           warehouseName,
+        },
+        {
+          headers: {
+            "Idempotency-Key":
+            idempotencyKey,
+          },
         }
       );
 

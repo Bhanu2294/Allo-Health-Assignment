@@ -1,102 +1,113 @@
 # Allo Health Inventory Reservation System
 
-Full stack Inventory Reservation Platform developed with Next.js, Prisma, Supabase PostgreSQL, and Redis.
+## How to Run the App Locally
 
-To simulate a real world multi-warehouse reservation problem and temporarily reserve products during checkout to avoid overselling with multiple transactions.
+### 1. Clone the Repository
 
----
-
-# Tech Stack
-
-- Next.js (App Router)
-- TypeScript
-- Prisma ORM
-- Supabase PostgreSQL
-- Upstash Redis
-- Tailwind CSS
-- Axios
-- React Hot Toast
+```bash
+git clone <repo-url>
+cd allo-inventory
+```
 
 ---
 
-# Features
+### 2. Install Dependencies
 
-## Inventory Management
-- Products and warehouses
-This will allow for tracking inventory issued per warehouse.
-This allows for the separation of `totalStock` and `reservedStock.This enables the separation of totalStock and reservedStock.
-
-## Reservation System
-- Temporary inventory reservation
-- Reservation expiry handling
-They provide details on the reservations and release.They share reservation details and release.
-
-## Concurrency Handling
-- Multi-participant transaction support due to possible simultaneous reservation conflicts – Redis locking for this.
-- Transactions between multiple Prisma databases with atomicity
-
-## Frontend
-- Product listing page
-- Reservation details page
-- Live countdown timer
-Customers can confirm and cancel their bookings.Customer booking & unsubscription flow
-Tighten up error handling, show toast messages.Enhance error handling, set toast messages.
+```bash
+npm install
+```
 
 ---
 
-# API Endpoints
+### 3. Configure Environment Variables
 
-## Products
-### GET `/api/products`
-Refunds inventory and stock from the warehouse.
+Set up an app's environment variables in its root's `.env` file.
 
----
+```env
+DATABASE_URL="postgresql://postgres.vtzqhrzxkweivwzlshbj:Bhanu22MIC7154@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
 
-## Warehouses
-### GET `/api/warehouses`
-Returns all warehouses.
+UPSTASH_REDIS_REST_URL="https://right-tarpon-135505.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="gQAAAAAAAhFRAAIgcDJmZDJhYzE3ZTQxZDE0OGMwODQ1ZWUwNmQyMDEzOTAwZg"```
 
 ---
 
-## Reservations
-### POST `/api/reservations`
-Makes an inventory reservation for a product and a warehouse.
+### 4. Run Prisma Migrations
 
-Returns:
-If the item is not in stock, return the following:
-An error code indicates that there is an error related to the request for users.If the request for user has an error, it is indicated by the error code.
+```bash
+npx prisma migrate dev
+```
 
 ---
 
-### POST `/api/reservations/:id/confirm`
-Confirms a reservation.
+### 5. Seed the Database
 
-Returns:
-Further, these letters may contain the following message:
+```bash
+npx prisma db seed
+```
 
----
-
-### POST `/api/reservations/:id/release`
-Removes a reservation and restores stock.
+This will insert a sample of healthcare inventory products and warehouse data.
 
 ---
 
-# Database Design
+To run the application run the below command
 
-## Product
-Stores product information.
+```bash
+npm run dev
+```
 
-## Warehouse
-Stores warehouse information.
-
-## Inventory
-Maintains Stock by each Product and each Warehouse.
-
-Fields:
-- `totalStock`
-- `reservedStock`
-
-Stock that is available is done dynamically:
+Application will run on:
 
 ```text
-availableStock = totalStock - reservedStock
+http://localhost:3000
+```
+
+---
+
+## Regenerating in the Expiry Mechanism in Production
+
+Application will follow a lazy approach to ExpireReservations.
+
+Each reservation has:
+- `status`
+- `expiresAt`
+
+If fetching a reservation using the reservation API:
+
+UPDATED 3I4U backends support checking whether:
+- the reservation is still `pending`
+- The current time is after the expiration time.
+
+If expired:
+- `reservedStock` is decremented
+- The status for the reservation record is changed to `released`
+
+The new reservation state is sent back to the client.
+
+This was done by not using:
+- background workers
+- cron jobs
+- queue systems
+
+The reservoir API has been made concurrent using:
+- Redis locking
+- Prisma database transactions
+
+---
+
+## Trade-offs / Improvements
+
+Limited time budget, hence mainly backend correctness and consistency of reservations are being pursued.
+
+Trade-offs made:
+- No up-to-the-minute inventory synchronization between clients
+- A WebSocket-based refresh of all stocks is no longer available.
+- No cron-based background cleanup service (barrakah, noa, sshd, etal.)
+- No implementation for idempotent reservation requests meant for redo operations.No implementation of an idempotent reservation request to be executed by redo.
+- Poor UI polishing when compared to the back end implementation
+
+If I had more time I would:
+- apply web socket real-time inventory updates
+- Add expiry cleanup by cron whenever you like.
+- Enhance the observability and structured logging
+- make automated integration and concurrency tests
+- Enhance UI/UX and responsive design skills

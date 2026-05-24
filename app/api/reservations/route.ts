@@ -5,7 +5,10 @@ import { redis } from "@/lib/redis";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
+    const idempotencyKey =
+      req.headers.get(
+      "Idempotency-Key"
+      );
     const { productId, warehouseName } = body;
 
     if (!productId || !warehouseName) {
@@ -15,6 +18,26 @@ export async function POST(req: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    if (!idempotencyKey) {
+      return NextResponse.json(
+      {
+      error:
+        "Idempotency-Key required",
+      },
+      { status: 400 }
+      );
+    }
+
+    const cachedReservation = await redis.get(
+      `idempotency:${idempotencyKey}`
+    );
+
+    if (cachedReservation) {
+      return NextResponse.json(
+      cachedReservation
+    );
     }
 
     const warehouse = await prisma.warehouse.findFirst({
@@ -106,7 +129,15 @@ export async function POST(req: NextRequest) {
         }
       );
 
-      return NextResponse.json(result);
+      await redis.set(
+  `idempotency:${idempotencyKey}`,
+  result,
+  {
+    ex: 60 * 10,
+  }
+);
+
+return NextResponse.json(result);
     } finally {
       await redis.del(lockKey);
     }
